@@ -3,11 +3,13 @@
 import { Layers } from "@/components/layers";
 import { removeLakeEmbellishments } from "@/renderers/draw-lakes";
 import { unfog } from "@/renderers/overlays/fogging";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl } from "@/utils/nodeUtils";
 
 /** Clear the map: every layer and the transient defs */
 export function undraw(): void {
   Layers.eraseAll();
+  MapGL.invalidate();
   for (const el of ensureEl("deftemp").querySelectorAll("path, clipPath, svg")) el.remove();
   removeLakeEmbellishments();
   ensureEl("coas").innerHTML = ""; // auto-generated emblems are re-created on demand

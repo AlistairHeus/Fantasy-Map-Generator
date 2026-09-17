@@ -458,3 +458,19 @@ describe("subscribe", () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("webgl backend", () => {
+  it("skips svg groups and still draws and erases", () => {
+    const draw = vi.fn();
+    const erase = vi.fn();
+    registry(new Layer({ id: "gl", parent: "viewbox", backend: "webgl", draw, erase }));
+
+    expect(document.getElementById("gl")).toBeNull();
+    Layers.show("gl");
+    expect(Layers.isOn("gl")).toBe(true);
+    expect(draw).toHaveBeenCalledTimes(1);
+
+    Layers.hide("gl");
+    expect(erase).toHaveBeenCalledTimes(1);
+  });
+});

@@ -13,8 +13,10 @@ import { resetZoom } from "@/components/zoom";
 import { GraphOverride } from "@/generators/graph-override";
 import { onLegendClick } from "@/renderers/draw-legend";
 import { zonesFilter } from "@/renderers/draw-zones";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { Services } from "@/services";
 import { declareFont } from "@/services/fonts";
+import { parseMapJson } from "@/services/io/map-file";
 import { logStats } from "@/services/logging";
 import { clearCache, compareVersions, isValidVersion, parseMapVersion, VERSION } from "@/services/versioning";
 import { ensureEl, escapeHtml, last, link, parseError, rn, safeParseJSON } from "@/utils";
@@ -185,6 +187,15 @@ async function parseLoadedResult(
 ): Promise<{ mapData: string[] | null; mapVersion: string | null }> {
   try {
     const resultAsString = new TextDecoder().decode(result);
+    const trimmed = resultAsString.trimStart();
+
+    if (trimmed.startsWith("{")) {
+      const json = parseMapJson(trimmed);
+      if (json) {
+        const mapVersion = parseMapVersion(json.version || json.records[0]?.split("|")[0] || "");
+        return { mapData: json.records, mapVersion };
+      }
+    }
 
     // data can be in FMG internal format or base64 encoded
     const isDelimited = resultAsString.substring(0, 10).includes("|");
@@ -283,6 +294,7 @@ async function parseLoadedData(data: string[], mapVersion: string | null): Promi
     undraw(); // every layer releases its scene and content before the loaded map takes over
     select("#map").remove();
     document.body.insertAdjacentHTML("afterbegin", data[5]);
+    MapGL.resize();
     zonesFilter.type = "all"; // the dropped map's zone types say nothing about the loaded one
 
     // TODO: check if we need it or if LayersRegistry resolves it automatically?

@@ -15,6 +15,7 @@ export interface LayerButton {
 export const LAYER_TOGGLES = new Map<LayerId, LayerButton>([
   ["texture", { label: "Te<u>x</u>ture", shortcut: "KeyX" }],
   ["heightmap", { label: "<u>H</u>eightmap", shortcut: "KeyH" }],
+  ["terrainShade", { label: "Natural terrain" }],
   ["lakes", { label: "Lakes", shortcut: "KeyQ" }],
   ["biomes", { label: "<u>B</u>iomes", shortcut: "KeyB" }],
   ["cells", { label: "C<u>e</u>lls", shortcut: "KeyE" }],
@@ -135,7 +136,10 @@ ensureEl("mapLayers").addEventListener("click", event => {
   const id = (event.target as HTMLElement).closest("li")?.dataset.layer;
   if (!id || !Layers.has(id)) return;
 
-  if (isCtrlClick(event)) return void editStyle(Layers.get(id).elementId);
+  if (isCtrlClick(event)) {
+    if (Layers.get(id).params.backend === "webgl") return;
+    return void editStyle(Layers.get(id).elementId);
+  }
   Layers.toggle(id);
 });
 

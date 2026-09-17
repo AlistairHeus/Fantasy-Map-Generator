@@ -6,6 +6,7 @@ import { viewport } from "@/components/viewport";
 import { renderEmblemDefinitions } from "@/renderers/draw-emblems";
 import { drawScaleBar } from "@/renderers/draw-scalebar";
 import { ViewportLayers } from "@/renderers/viewport/viewport-renderer";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { getUsedFonts, loadFontsAsDataURI } from "@/services/fonts";
 import { savedMessage } from "@/services/platform";
 import {
@@ -72,6 +73,8 @@ async function exportToPng(): Promise<void> {
     const blob = await new Promise<Blob>((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
+        const gl = MapGL.capture();
+        if (gl) ctx.drawImage(gl, 0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
           if (!blob) return reject(new Error("Cannot render PNG image"));
@@ -114,6 +117,8 @@ async function exportToJpeg(): Promise<void> {
     const blob = await new Promise<Blob>((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
+        const gl = MapGL.capture();
+        if (gl) ctx.drawImage(gl, 0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(
           blob => {
@@ -288,6 +293,22 @@ async function getMapURL(type: string, config: GetMapURLOptions = {}): Promise<s
     if (noIce) clone.select("#ice").remove();
     if (noVignette) clone.select("#vignette").remove();
     if (noScaleBar) clone.select("#scaleBar").remove();
+
+    const glCanvas = MapGL.capture(Boolean(fullMap));
+    if (glCanvas && type === "svg") {
+      const image = document.createElementNS("http://www.w3.org/2000/svg", "image");
+      image.setAttribute("href", glCanvas.toDataURL("image/png"));
+      image.setAttribute("x", "0");
+      image.setAttribute("y", "0");
+      if (fullMap) {
+        image.setAttribute("width", String(options.map.graph.width));
+        image.setAttribute("height", String(options.map.graph.height));
+      } else {
+        image.setAttribute("width", cloneEl.getAttribute("width") || String(viewport.width));
+        image.setAttribute("height", cloneEl.getAttribute("height") || String(viewport.height));
+      }
+      cloneEl.insertBefore(image, cloneEl.querySelector("#viewbox"));
+    }
 
     if (type === "svg") removeUnusedElements(clone);
     relocateRootFilter(cloneEl); // Firefox drops a root-svg filter when the svg is rasterized via an image

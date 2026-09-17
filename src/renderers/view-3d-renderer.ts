@@ -16,6 +16,7 @@ import {
 } from "./draw-satellite-texture";
 import * as ErosionBake from "./erosion-bake";
 import { getGroupStyle } from "./labels/label-groups";
+import { loadThree } from "./webgl/load-three";
 
 export { heightAt, isCached } from "./erosion-bake";
 
@@ -1160,18 +1161,12 @@ function applyWaterAnimation(mat: THREE.MeshLambertMaterial, flowTexture: THREE.
 function loadTHREE() {
   if (Three) return Promise.resolve(true);
   if (!threeLoadPromise) {
-    threeLoadPromise = new Promise(resolve => {
-      const script = document.createElement("script");
-      script.src = "libs/three.min.js";
-      document.head.append(script);
-      script.onload = () => {
-        Three = window.THREE as unknown as typeof import("three");
-        resolve(true);
-      };
-      script.onerror = () => resolve(false);
+    threeLoadPromise = loadThree().then(lib => {
+      if (!lib) return false;
+      Three = lib;
+      return true;
     });
   }
-
   return threeLoadPromise;
 }
 

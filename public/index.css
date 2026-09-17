@@ -78,6 +78,15 @@ iframe {
   mask-clip: no-clip;
   fill-rule: evenodd;
   user-select: none;
+  z-index: 1;
+}
+
+#mapgl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 0;
 }
 
 #canvas {
@@ -389,6 +398,11 @@ button.ui-button:disabled:hover {
   user-select: none;
 }
 
+#optionsContainer {
+  position: relative;
+  z-index: 2;
+}
+
 #optionsTrigger {
   padding: 0.6em 0.45em;
 }
@@ -405,6 +419,7 @@ button.ui-button:disabled:hover {
 
 #options {
   position: absolute;
+  z-index: 2;
   font-family: var(--monospace);
   border: solid 1px #5e4fa2;
   margin: 10px;

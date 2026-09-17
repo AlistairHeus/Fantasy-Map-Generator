@@ -11,9 +11,11 @@ import {
   select
 } from "d3";
 import { viewport } from "@/components/viewport";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { connectVertices, convertTemperature, round } from "../utils";
 
 const temperatureRenderer = (): void => {
+  if (MapGL.skipSvgDraw("temperature")) return void MapGL.invalidate();
   TIME && console.time("drawTemperature");
 
   select("#temperature").selectAll("*").remove();

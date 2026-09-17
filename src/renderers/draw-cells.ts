@@ -1,6 +1,8 @@
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl } from "@/utils";
 
 export function drawCells(): void {
+  if (MapGL.skipSvgDraw("cells")) return void MapGL.invalidate();
   const isGridMode = customization === 1; // the heightmap editor works on the grid graph
   const cellIds = (isGridMode ? grid.cells.i : pack.cells.i) as ArrayLike<number>;
   const getPolygon = isGridMode

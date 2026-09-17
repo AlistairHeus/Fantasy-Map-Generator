@@ -36,12 +36,15 @@ import { drawZones } from "@/renderers/draw-zones";
 import { drawLabels, removeLabels } from "@/renderers/labels/labels-renderer";
 import { drawFogging } from "@/renderers/overlays/fogging";
 import { TradeAnimation } from "@/renderers/trade-animation";
+import { drawTerrainShade, removeTerrainShade } from "@/renderers/webgl/draw-terrain-shade";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { createEl, ensureEl, findEl } from "@/utils/nodeUtils";
 
 interface LayerParams<Id extends string = string> {
   id: Id; // canonical identity, persisted in the .map file
   element?: string; // id of the svg group holding the layer content
   parent: "viewbox" | "map"; // id of the svg element the layer group is appended to
+  backend?: "svg" | "webgl"; // webgl layers have no svg group; MapGL owns their pixels
   children?: ChildParams[]; // permament elements created inside the group
   attrs?: Record<string, string>; // static attributes applied to the layer group
   permanent?: boolean; // structural layer: on from the start, never turned off and never saved as state
@@ -87,6 +90,7 @@ export class LayersRegistry<Id extends string = string> {
   /** create missing layer groups, order them by registration order and apply the current state */
   init(): void {
     for (const layer of this.layers) {
+      if (layer.params.backend === "webgl") continue;
       const { parent, attrs } = layer.params;
 
       let group = findEl<SVGGElement>(layer.elementId);
@@ -185,6 +189,10 @@ export class LayersRegistry<Id extends string = string> {
 
   eraseAll(): void {
     for (const layer of this.layers) {
+      if (layer.params.backend === "webgl") {
+        layer.params.erase?.(layer);
+        continue;
+      }
       if (layer.parent !== "viewbox") continue;
       if (layer.params.erase) layer.params.erase(layer);
       else this.eraseContent(layer);
@@ -241,6 +249,10 @@ export class LayersRegistry<Id extends string = string> {
       if (!ids.includes(layer.id)) continue;
 
       on ? this.active.add(layer.id) : this.active.delete(layer.id);
+      if (layer.params.backend === "webgl") {
+        if (!on) layer.params.erase?.(layer);
+        continue;
+      }
       this.setVisible(layer.getEl(), on);
 
       if (on) continue;
@@ -287,6 +299,13 @@ const mapLayers = [
     parent: "viewbox",
     children: ["oceanHeights", "landHeights"].map(id => ({ id, tag: "g" })),
     draw: drawHeightmap
+  }),
+  new Layer({
+    id: "terrainShade",
+    parent: "viewbox",
+    backend: "webgl",
+    draw: drawTerrainShade,
+    erase: removeTerrainShade
   }),
   new Layer({
     id: "lakes",
@@ -422,3 +441,11 @@ declare global {
 export const Layers = new LayersRegistry(mapLayers);
 
 window.Layers = Layers;
+
+Layers.subscribe(() => {
+  if (Layers.isOn("terrainShade")) void MapGL.ensure().then(() => MapGL.invalidate());
+  else {
+    MapGL.applyCoverage();
+    MapGL.render();
+  }
+});

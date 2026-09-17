@@ -1,8 +1,10 @@
 import { color as d3Color } from "d3";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl, getIsolines } from "@/utils";
 import { buildFillPaths } from "./isoline-fills";
 
 export function drawStates(): void {
+  if (MapGL.skipSvgDraw("states")) return void MapGL.invalidate();
   TIME && console.time("drawStates");
   const { cells, states } = pack;
 

@@ -2,6 +2,7 @@ import { type D3ZoomEvent, interpolateZoom, select, type ZoomView, zoom, zoomIde
 import { Layers } from "@/components/layers";
 import { setViewportTransform, viewport } from "@/components/viewport";
 import { ViewportLayers } from "@/renderers/viewport/viewport-renderer";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl, findEl } from "@/utils/nodeUtils";
 import { rn } from "@/utils/numberUtils";
 
@@ -49,6 +50,7 @@ function handleZoomPerFrame(): void {
     "transform",
     `translate(${viewport.x} ${viewport.y}) scale(${viewport.scale})`
   );
+  MapGL.syncCamera();
 
   if (didScaleChange) {
     Layers.draw("scaleBar");

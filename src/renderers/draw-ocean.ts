@@ -1,5 +1,6 @@
 import { curveBasisClosed, line } from "d3";
 import { Ocean } from "@/generators/ocean-generator";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { rn, round } from "@/utils";
 import { ensureEl } from "@/utils/nodeUtils";
 import { getCoastalDistances, getCoastalWaves } from "./coastal-waves";
@@ -51,6 +52,7 @@ function sizeToGraph(rect: SVGRectElement): void {
 
 /** the ocean outline rings, stacked from the coast outwards so the overlap deepens the shade */
 export function drawOcean(): void {
+  if (MapGL.skipSvgDraw("ocean")) return void MapGL.invalidate();
   removeOcean();
   applyOceanPattern();
   drawOceanBase();

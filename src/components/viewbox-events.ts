@@ -3,6 +3,8 @@ import { drag, select } from "d3";
 import { Controllers } from "@/controllers";
 import type { LabelType } from "@/generators/labels-generator";
 import { dragLegendBox } from "@/renderers/draw-legend";
+import { MapGL } from "@/renderers/webgl/map-gl";
+import { PICK_KIND } from "@/renderers/webgl/picking";
 import { debounce } from "@/utils/commonUtils";
 import { handleMouseMove } from "./map-tooltip";
 import { applyZoomBehavior } from "./zoom";
@@ -54,6 +56,18 @@ const GREAT_EDITORS: Record<string, Opener> = {
 
 /** Handle a click on the map: open the editor for the clicked element */
 function onClick(event: MouseEvent): void {
+  const gpuHit = MapGL.pick(event);
+  if (gpuHit) {
+    if (gpuHit.kind === PICK_KIND.burg) return void Controllers.BurgEditor.open(gpuHit.id);
+    if (gpuHit.kind === PICK_KIND.river) return void Controllers.RiverEditor.open(`river${gpuHit.id}`);
+    if (gpuHit.kind === PICK_KIND.route) return void Controllers.RouteEditor.open(`route${gpuHit.id}`);
+    if (gpuHit.kind === PICK_KIND.marker) return void Controllers.MarkersEditor.open(gpuHit.id);
+    if (gpuHit.kind === PICK_KIND.relief) {
+      const icon = document.querySelector<SVGElement>(`#terrain [data-id="${gpuHit.id}"]`);
+      if (icon) return void Controllers.ReliefEditor.open(icon);
+    }
+  }
+
   const target = event?.target as SVGElement | null;
   const parent = target?.parentElement as SVGElement | null;
   const grand = parent?.parentElement as SVGElement | null;

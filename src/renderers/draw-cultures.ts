@@ -1,7 +1,9 @@
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl, getIsolines } from "@/utils";
 import { buildFillPaths } from "./isoline-fills";
 
 export function drawCultures(): void {
+  if (MapGL.skipSvgDraw("cultures")) return void MapGL.invalidate();
   TIME && console.time("drawCultures");
   const { cells, cultures } = pack;
 

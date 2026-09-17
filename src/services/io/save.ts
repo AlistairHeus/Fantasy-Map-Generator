@@ -7,6 +7,7 @@ import { tip } from "@/components/tooltips";
 import { GraphOverride } from "@/generators/graph-override";
 import { Services } from "@/services";
 import { getUsedFonts } from "@/services/fonts";
+import { wrapMapFile } from "@/services/io/map-file";
 import { savedMessage } from "@/services/platform";
 import { VERSION } from "@/services/versioning";
 import { ensureEl, getFileName, link, parseError, rn } from "@/utils";
@@ -94,6 +95,10 @@ function prepareMapData(): string {
   if (cloneTradeAnimation) cloneTradeAnimation.innerHTML = ""; // always remove transient trade animations
   cloneEl.querySelector("#journeyOverlay")?.remove(); // transient journey path-editing handles
   cloneEl.querySelector("#journeyTravel")?.remove(); // transient journey travel animation
+
+  for (const selector of PAINTED_ON_LOAD) {
+    cloneEl.querySelector(selector)?.replaceChildren();
+  }
 
   const serializedSVG = new XMLSerializer().serializeToString(cloneEl);
 
@@ -194,8 +199,31 @@ function prepareMapData(): string {
     graphOverride,
     journeys
   ].join("\r\n");
-  return mapData;
+  return wrapMapFile(mapData, VERSION);
 }
+
+const PAINTED_ON_LOAD = [
+  "#biomes",
+  "#cells",
+  "#cults",
+  "#relig",
+  "#statesBody",
+  "#statesHalo",
+  "#provs",
+  "#zones",
+  "#oceanHeights",
+  "#landHeights",
+  "#texture",
+  "#rivers",
+  "#routes",
+  "#borders",
+  "#coastline",
+  "#temperature",
+  "#prec",
+  "#population",
+  "#icons",
+  "#markers"
+];
 
 // save map file to indexedDB
 async function writeToStorage(mapData: string, showTip = false): Promise<void> {

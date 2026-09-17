@@ -208,6 +208,16 @@ const fragmentShader = /* glsl */ `
     return value;
   }
 
+  vec4 biomeAt(vec2 uv, vec2 warp) {
+    vec2 texel = 1.0 / uGridSize;
+    vec2 p = uv + warp;
+    vec2 a = texel * vec2(0.68, 0.28);
+    vec2 b = texel * vec2(-0.28, 0.68);
+    return texture2D(uBiome, p) * 0.36
+      + (texture2D(uBiome, p + a) + texture2D(uBiome, p - a)
+      + texture2D(uBiome, p + b) + texture2D(uBiome, p - b)) * 0.16;
+  }
+
   float decodeHeight(vec4 t) {
     return (t.r * 65280.0 + t.g * 255.0) / 65535.0;
   }
@@ -255,15 +265,19 @@ const fragmentShader = /* glsl */ `
     float gully = clamp(-relief * 4.0, 0.0, 1.0);
     float drainage = fieldSample.z;
 
-    // per-texel slope (tan of the steepest angle) from central differences;
-    // single FIELD-texel taps on purpose: the baked gullies and ridge walls
-    // must register as steep so rock streaks follow the erosion pattern, and
-    // sub-field-texel taps on bilinear data would stair-step
-    float hL = heightAt(uv - vec2(texel.x, 0.0));
-    float hR = heightAt(uv + vec2(texel.x, 0.0));
-    float hU = heightAt(uv - vec2(0.0, texel.y));
-    float hD = heightAt(uv + vec2(0.0, texel.y));
-    vec2 grad = vec2((hR - hL) * 0.5 * uSlopeScale.x, (hD - hU) * 0.5 * uSlopeScale.y);
+    // Average the gradient across most of a source-grid cell. The baked
+    // height is much denser, but its base field is bilinear at grid scale;
+    // one-field-texel differences expose that lattice as rectangular slopes.
+    vec2 slopeStep = 0.65 / uGridSize;
+    float hL = heightAt(uv - vec2(slopeStep.x, 0.0));
+    float hR = heightAt(uv + vec2(slopeStep.x, 0.0));
+    float hU = heightAt(uv - vec2(0.0, slopeStep.y));
+    float hD = heightAt(uv + vec2(0.0, slopeStep.y));
+    vec2 slopeSpan = max(slopeStep * uFieldSize, vec2(1.0));
+    vec2 grad = vec2(
+      (hR - hL) * 0.5 / slopeSpan.x * uSlopeScale.x,
+      (hD - hU) * 0.5 / slopeSpan.y * uSlopeScale.y
+    );
     float slope = length(grad);
 
     // breakup noise dithers every material threshold so blend edges read as
@@ -283,10 +297,10 @@ const fragmentShader = /* glsl */ `
     float warm = smoothstep(2.0, 14.0, tempC);    // shore/lagoon character
     float scorch = smoothstep(20.0, 28.0, tempC); // hot rock bakes red
 
-    // biome albedo, sampled with a noise-wobbled uv so zone borders wander
-    // off the cell lattice; density = vegetation cover for clumping
-    vec2 wobble = vec2(macro, patch) * (1.6 / uGridSize);
-    vec4 biome = texture2D(uBiome, cuv + wobble);
+    // Blend rotated samples around a noise-warped point. This smooths the
+    // categorical grid raster without restoring axis-aligned cell borders.
+    vec2 wobble = vec2(macro + patch * 0.45, patch - macro * 0.35) * (2.4 / uGridSize);
+    vec4 biome = biomeAt(cuv, wobble);
     vec3 color = biome.rgb;
     float density = biome.a;
 
@@ -474,7 +488,7 @@ const fragmentShader = /* glsl */ `
 export function generateSatelliteTexture(
   renderer: THREEType.WebGLRenderer,
   bakeResult: ErosionBakeResult,
-  { scale, maxOutput }: { scale: number; maxOutput: number }
+  { scale, maxOutput, maxSupersample = 2 }: { scale: number; maxOutput: number; maxSupersample?: number }
 ): THREEType.Texture | null {
   if (!bakeResult?.pixels || !bakeResult?.coast) return null;
   disposeSatelliteTexture();
@@ -506,18 +520,16 @@ export function generateSatelliteTexture(
     // signals interpolate via the shader's bilinear decode. Never downsample:
     // a 1x output stays bit-identical to rendering at field size
     const longSide = Math.max(cols, rows);
-    const maxSide = Math.min(maxOutput, renderer.capabilities.maxTextureSize, longSide * 2);
+    const maxSide = Math.min(maxOutput, renderer.capabilities.maxTextureSize, longSide * (maxSupersample ?? 2));
     const outputScale = Math.max(maxSide / longSide, 1);
     const outputW = Math.round(cols * outputScale);
     const outputH = Math.round(rows * outputScale);
 
-    // mipmaps need WebGL2 for the non-power-of-two bake size
-    const isWebGL2 = renderer.capabilities.isWebGL2;
     const target = new THREE.WebGLRenderTarget(outputW, outputH, {
       format: THREE.RGBAFormat,
       type: THREE.UnsignedByteType,
-      generateMipmaps: isWebGL2,
-      minFilter: isWebGL2 ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter,
+      generateMipmaps: false,
+      minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       depthBuffer: false,
       stencilBuffer: false

@@ -2,6 +2,7 @@ import { is3dView } from "@/components/options/view-mode";
 import { tip } from "@/components/tooltips";
 import { viewport } from "@/components/viewport";
 import { globeResolutionFor, timeOfDayPresets } from "@/data/view-3d-options";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl } from "@/utils";
 
 // View3d controller: enters/exits the 3D view and owns the 3D settings dialog.
@@ -50,6 +51,7 @@ function teardown(): void {
   document.getElementById("canvas3d")?.remove();
   if (document.getElementById("options3d")) $("#options3d").dialog("close");
   if (document.getElementById("preview3d")) $("#preview3d").dialog("close");
+  MapGL.resume();
 }
 
 function enterStandard(): void {
@@ -67,6 +69,7 @@ async function open(type: string): Promise<void> {
   enterStandard(); // tears down any current 3D view and resets the buttons
   ensureEl("viewStandard").classList.remove("pressed");
   ensureEl(type).classList.add("pressed");
+  MapGL.pause();
 
   const canvas = document.createElement("canvas");
   canvas.id = "canvas3d";
@@ -85,7 +88,10 @@ async function open(type: string): Promise<void> {
   }
 
   const started = await create(canvas, type);
-  if (!started) return;
+  if (!started) {
+    MapGL.resume();
+    return;
+  }
 
   canvas.style.display = "block";
   canvas.onmouseenter = () => {

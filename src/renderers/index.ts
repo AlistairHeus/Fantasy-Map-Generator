@@ -1,4 +1,5 @@
 import "@/components/layers";
+import "./webgl/map-gl";
 import "./draw-borders";
 import "./draw-biomes";
 import "./draw-burg-icons";

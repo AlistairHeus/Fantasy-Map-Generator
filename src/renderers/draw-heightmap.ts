@@ -22,6 +22,7 @@ import {
   range,
   select
 } from "d3";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { tip } from "../components/tooltips";
 import { round } from "../utils";
 import { getHeightContours, smoothContourHeights } from "./heightmap-contours";
@@ -64,6 +65,7 @@ function getContourSurface(smoothed: Float64Array): { points: [number, number][]
 export const drawHeightmap = (): void => {
   if (customization === 1)
     return void tip("The Layer control is not available in the heightmap edit mode", false, "error");
+  if (MapGL.skipSvgDraw("heightmap")) return void MapGL.invalidate();
 
   TIME && console.time("drawHeightmap");
 

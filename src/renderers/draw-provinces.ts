@@ -1,7 +1,9 @@
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl, getIsolines } from "@/utils";
 import { buildFillPaths } from "./isoline-fills";
 
 export function drawProvinces(): void {
+  if (MapGL.skipSvgDraw("provinces")) return void MapGL.invalidate();
   TIME && console.time("drawProvinces");
   const { cells, provinces } = pack;
 

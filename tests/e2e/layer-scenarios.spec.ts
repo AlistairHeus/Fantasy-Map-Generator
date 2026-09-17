@@ -9,7 +9,14 @@ import { countMaps, waitForMap, waitForNextMap } from "./wait-for-map";
 declare const Layers: {
   all: readonly {
     id: string;
-    params: { permanent?: boolean; keepContent?: boolean; element?: string; draw?: unknown; erase?: unknown };
+    params: {
+      permanent?: boolean;
+      keepContent?: boolean;
+      element?: string;
+      backend?: "svg" | "webgl";
+      draw?: unknown;
+      erase?: unknown;
+    };
   }[];
   state: { order: string[]; active: string[] };
   isOn: (id: string) => boolean;
@@ -67,6 +74,7 @@ const layerContent = (page: Page) =>
 const visibilityDrift = (page: Page) =>
   page.evaluate(() =>
     Layers.all
+      .filter(layer => layer.params.backend !== "webgl")
       .map(layer => {
         const element = document.getElementById(layer.params.element ?? layer.id);
         if (!element) return `${layer.id}: no element`;

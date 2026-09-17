@@ -1,9 +1,11 @@
 import { easeSinIn, select, transition } from "d3";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl } from "@/utils";
 
 type Bar = [x: number, base: number, top: number];
 
 export function drawPopulation(): void {
+  if (MapGL.skipSvgDraw("population")) return void MapGL.invalidate();
   const { cells, burgs } = pack;
   const population = select(ensureEl<SVGGElement>("population"));
   population.selectAll("line").remove();

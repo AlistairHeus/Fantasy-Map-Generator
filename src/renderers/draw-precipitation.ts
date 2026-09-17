@@ -1,7 +1,9 @@
 import { easeSinIn, select, transition } from "d3";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { ensureEl, rn } from "@/utils";
 
 export function drawPrecipitation(): void {
+  if (MapGL.skipSvgDraw("precipitation")) return void MapGL.invalidate();
   TIME && console.time("drawPrecipitation");
   const { cells, points } = grid;
 

@@ -3,6 +3,7 @@ import { Layers } from "@/components/layers";
 import { setViewportSize, viewport } from "@/components/viewport";
 import { constrainZoom, setTranslateExtent, setZoomExtent } from "@/components/zoom";
 import { fitLegendBox } from "@/renderers/draw-legend";
+import { MapGL } from "@/renderers/webgl/map-gl";
 import { findEl } from "@/utils/nodeUtils";
 
 /** Resize everything that covers the whole map to the graph extent */
@@ -55,6 +56,7 @@ export function setViewport(width: number, height: number): void {
 
   Layers.draw("scaleBar");
   fitLegendBox();
+  MapGL.resize();
 }
 
 /**
