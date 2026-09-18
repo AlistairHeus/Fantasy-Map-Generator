@@ -1,11 +1,19 @@
 import { interpolateBlues, interpolateSpectral } from "d3";
 import type * as THREEType from "three";
 import type { LayerId } from "@/components/layers";
+import { getClimateReliefIcon, getReliefIconForSet, RELIEF_ICONS } from "@/data/relief-icons";
 import { parseRgb } from "./color";
 import { fanTriangles, linePositions, polylineStrip } from "./geometry";
 import { encodePick, PICK_KIND } from "./picking";
 
 type Three = typeof import("three");
+type AtlasTile = { u0: number; u1: number; v0: number; v1: number };
+type ReliefAtlas = { texture: THREEType.CanvasTexture; tiles: Map<string, AtlasTile> };
+
+const RELIEF_TILE_SIZE = 128;
+const RELIEF_TILE_PADDING = 6;
+const SNOW_MOUNTAIN_ICON = "relief-mountSnow-2";
+let reliefAtlasPromise: Promise<ReliefAtlas> | null = null;
 
 const FILL_LAYERS = [
   "states",
@@ -283,8 +291,19 @@ function coastMesh(Three: Three): THREEType.LineSegments {
   return lineMesh(Three, positions, parseRgb(styles.coastline?.sea_island?.attrs?.stroke ?? "#2a231b"), 0.85);
 }
 
-export function buildSpriteMeshes(Three: Three, group: THREEType.Group, pickGroup: THREEType.Group): void {
+export async function buildSpriteMeshes(
+  Three: Three,
+  group: THREEType.Group,
+  pickGroup: THREEType.Group,
+  isCurrent: () => boolean
+): Promise<void> {
+  const relief = window.Layers?.isOn("relief") ? await makeReliefMeshes(Three, isCurrent) : null;
+  if (!isCurrent()) return;
   if (window.Layers?.isOn("burgIcons")) addBurgs(Three, group, pickGroup);
+  if (relief) {
+    group.add(relief.mesh);
+    pickGroup.add(relief.pickMesh);
+  }
   if (window.Layers?.isOn("markers")) addMarkers(Three, group, pickGroup);
 }
 
@@ -303,6 +322,142 @@ function addBurgs(Three: Three, group: THREEType.Group, pickGroup: THREEType.Gro
   }
   group.add(coloredMesh(Three, positions, colors));
   pickGroup.add(coloredMesh(Three, pickPos, pickCol, false));
+}
+
+async function makeReliefMeshes(
+  Three: Three,
+  isCurrent: () => boolean
+): Promise<{ mesh: THREEType.Mesh; pickMesh: THREEType.Mesh } | null> {
+  const atlas = await getReliefAtlas(Three);
+  if (!isCurrent()) return null;
+
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const pickPos: number[] = [];
+  const pickCol: number[] = [];
+  for (const [index, icon] of (pack.relief || []).entries()) {
+    const centerX = icon.x + icon.s / 2;
+    const centerY = icon.y + icon.s / 2;
+    const gridCell = Grid.findCell(centerX, centerY);
+    const climateIcon = getClimateReliefIcon(icon.icon, grid.cells.h[gridCell], grid.cells.temp[gridCell]);
+    const renderedIcon = /^relief-mountSnow-/.test(climateIcon)
+      ? SNOW_MOUNTAIN_ICON
+      : getReliefIconForSet(climateIcon, "illustrated");
+    const tile = atlas.tiles.get(renderedIcon);
+    if (!tile) continue;
+
+    const symbolScale = /relief-(mount|mountSnow|vulcan|hill)-/.test(icon.icon) ? 0.82 : 0.72;
+    const size = icon.s * symbolScale;
+    const shift = (icon.s - size) / 2;
+    pushTexturedSprite(positions, uvs, icon.x + shift, icon.y + shift, size, tile);
+
+    const [pr, pg, pb] = encodePick(PICK_KIND.relief, index);
+    pushSprite(pickPos, pickCol, centerX, centerY, size, [pr / 255, pg / 255, pb / 255]);
+  }
+
+  const geometry = new Three.BufferGeometry();
+  geometry.setAttribute("position", new Three.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new Three.Float32BufferAttribute(uvs, 2));
+  const material = new Three.MeshBasicMaterial({
+    map: atlas.texture,
+    transparent: true,
+    opacity: 0.9,
+    alphaTest: 0.02,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+    side: Three.DoubleSide
+  });
+  const mesh = new Three.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+
+  return { mesh, pickMesh: coloredMesh(Three, pickPos, pickCol, false) };
+}
+
+async function getReliefAtlas(Three: Three): Promise<ReliefAtlas> {
+  if (reliefAtlasPromise) return reliefAtlasPromise;
+  reliefAtlasPromise = buildReliefAtlas(Three);
+  return reliefAtlasPromise;
+}
+
+async function buildReliefAtlas(Three: Three): Promise<ReliefAtlas> {
+  const ids = RELIEF_ICONS.filter(icon => icon.set === "illustrated").flatMap(icon =>
+    icon.variants.map(variant => `relief-${icon.type}-${variant}-illustrated`)
+  );
+  ids.push(SNOW_MOUNTAIN_ICON);
+  const columns = Math.ceil(Math.sqrt(ids.length));
+  const rows = Math.ceil(ids.length / columns);
+  const canvas = document.createElement("canvas");
+  canvas.width = columns * RELIEF_TILE_SIZE;
+  canvas.height = rows * RELIEF_TILE_SIZE;
+  const context = canvas.getContext("2d")!;
+  const tiles = new Map<string, AtlasTile>();
+
+  await Promise.all(
+    ids.map(async (id, index) => {
+      const symbol = document.getElementById(id);
+      if (!(symbol instanceof SVGSymbolElement)) return;
+      const image = await loadSvgSymbol(symbol);
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = column * RELIEF_TILE_SIZE + RELIEF_TILE_PADDING;
+      const y = row * RELIEF_TILE_SIZE + RELIEF_TILE_PADDING;
+      const size = RELIEF_TILE_SIZE - RELIEF_TILE_PADDING * 2;
+      context.globalAlpha = /^relief-mount(Snow)?-/.test(id) ? 0.68 : 1;
+      context.drawImage(image, x, y, size, size);
+      context.globalAlpha = 1;
+      tiles.set(id, {
+        u0: x / canvas.width,
+        u1: (x + size) / canvas.width,
+        v0: 1 - (y + size) / canvas.height,
+        v1: 1 - y / canvas.height
+      });
+    })
+  );
+
+  const texture = new Three.CanvasTexture(canvas);
+  texture.colorSpace = Three.SRGBColorSpace;
+  texture.minFilter = texture.magFilter = Three.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return { texture, tiles };
+}
+
+function loadSvgSymbol(symbol: SVGSymbolElement): Promise<HTMLImageElement> {
+  const viewBox = symbol.getAttribute("viewBox") || "0 0 40 40";
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${symbol.innerHTML}</svg>`;
+  const url = URL.createObjectURL(new Blob([source], { type: "image/svg+xml" }));
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`Cannot rasterize relief symbol ${symbol.id}`));
+    };
+    image.src = url;
+  });
+}
+
+function pushTexturedSprite(
+  positions: number[],
+  uvs: number[],
+  x: number,
+  y: number,
+  size: number,
+  tile: AtlasTile
+): void {
+  positions.push(x, y, 0, x + size, y, 0, x + size, y + size, 0);
+  positions.push(x, y, 0, x + size, y + size, 0, x, y + size, 0);
+  uvs.push(tile.u0, tile.v1, tile.u1, tile.v1, tile.u1, tile.v0);
+  uvs.push(tile.u0, tile.v1, tile.u1, tile.v0, tile.u0, tile.v0);
+}
+
+export function disposeVectorTextures(): void {
+  void reliefAtlasPromise?.then(atlas => atlas.texture.dispose());
+  reliefAtlasPromise = null;
 }
 
 function addMarkers(Three: Three, group: THREEType.Group, pickGroup: THREEType.Group): void {

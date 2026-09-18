@@ -48,3 +48,27 @@ export const RELIEF_ICONS: ReliefTypeIcons[] = [
   { set: "illustrated", type: "cactus", variants: [1] },
   { set: "illustrated", type: "deadTree", variants: [1] }
 ];
+
+export function getReliefIconForSet(iconId: string, set: ReliefSet): string {
+  const [, originalType, variantText] = iconId.match(/^relief-(\w+?)-(\d+)/) || [];
+  if (!originalType) return iconId;
+
+  let type: string | undefined = originalType;
+  while (type) {
+    const target = RELIEF_ICONS.find(icon => icon.set === RELIEF_SETS[set].base && icon.type === type);
+    if (target) {
+      const sourceVariant = Number(variantText) - 1;
+      const variant = target.variants[sourceVariant % target.variants.length];
+      return `relief-${target.type}-${variant}${RELIEF_SETS[set].suffix}`;
+    }
+    type = RELIEF_ICONS.find(icon => icon.type === type)?.fallback;
+  }
+
+  return iconId;
+}
+
+export function getClimateReliefIcon(iconId: string, height: number, temperature: number): string {
+  if (!/^relief-(mount|mountSnow)-/.test(iconId)) return iconId;
+  const type = height > 70 && temperature < 0 ? "mountSnow" : "mount";
+  return iconId.replace(/^relief-(mount|mountSnow)-/, `relief-${type}-`);
+}

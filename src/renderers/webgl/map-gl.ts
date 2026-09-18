@@ -5,11 +5,11 @@ import { applyWorldTransform } from "./camera";
 import { loadThree } from "./load-three";
 import { decodePick, type GpuHit } from "./picking";
 import { bakeTerrainTexture, makeTerrainQuad } from "./terrain";
-import { buildFillMeshes, buildLineMeshes, buildSpriteMeshes, gpuFillIds } from "./vectors";
+import { buildFillMeshes, buildLineMeshes, buildSpriteMeshes, disposeVectorTextures, gpuFillIds } from "./vectors";
 
 const COVERED: ReadonlySet<string> = new Set(["texture", "heightmap", "biomes", "ocean"]);
 const GPU_LINES: ReadonlySet<string> = new Set(["rivers", "routes", "borders", "coastline"]);
-const GPU_SPRITES: ReadonlySet<string> = new Set(["burgIcons", "markers"]);
+const GPU_SPRITES: ReadonlySet<string> = new Set(["relief", "burgIcons", "markers"]);
 
 let canvas: HTMLCanvasElement | null = null;
 let renderer: THREEType.WebGLRenderer | null = null;
@@ -206,7 +206,8 @@ async function rebuild(): Promise<void> {
   world.add(terrainMesh);
   buildFillMeshes(Three, world);
   buildLineMeshes(Three, world, pickWorld);
-  buildSpriteMeshes(Three, world, pickWorld);
+  await buildSpriteMeshes(Three, world, pickWorld, () => token === bakeToken);
+  if (token !== bakeToken) return;
   dirty = false;
 }
 
@@ -336,6 +337,7 @@ function dispose(): void {
   frameId = 0;
   clearGroup(world);
   clearGroup(pickWorld);
+  disposeVectorTextures();
   renderer?.dispose();
   renderer?.forceContextLoss();
   renderer = null;
