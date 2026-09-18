@@ -149,6 +149,7 @@ function buildCoastTexture(bakeW: number, bakeH: number) {
   maskCtx.restore();
 
   const taperPx = Math.max(1, grid.spacing * 0.5 * scaleX);
+  const edgeBlurPx = Math.min(taperPx, 1.5);
 
   // river courses for the satellite texture: the actual river polygons
   // (same geometry as the 2D rivers layer) rasterized white on black; the
@@ -250,7 +251,7 @@ function buildCoastTexture(bakeW: number, bakeH: number) {
   blurCanvas.width = bakeW;
   blurCanvas.height = bakeH;
   const blurCtx = blurCanvas.getContext("2d")!;
-  blurCtx.filter = `blur(${taperPx}px)`;
+  blurCtx.filter = `blur(${edgeBlurPx}px)`;
   blurCtx.drawImage(maskCanvas, 0, 0);
 
   const surfaceCanvas = document.createElement("canvas");
@@ -470,7 +471,7 @@ const fragmentShader = /* glsl */ `
     const float DIR_SCALE = 0.5;         // stripes per lattice cell per unit slope
     const float MAX_STRIPE_FREQ = 4.0;   // cap stripes per lattice cell
     const float RIVER_RELIEF_CAP = 0.15; // max carve depth, in 0..1 height units
-    const float COAST_RAMP = 0.2;        // land mask span
+    const float COAST_RAMP = 0.08;       // land mask span
     const float RIDGE_SHARPEN = 0.8;      // unsharp-mask strength for crest sharpening
     const float EDGE_SHARP = 0.7;         // edge-shaping exponent: sharper crests, rounder gully floors
     const float SLOPE_LO = 0.015;         // gradient trick: local slope (height delta per grid cell

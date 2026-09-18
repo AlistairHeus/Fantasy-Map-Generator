@@ -141,14 +141,21 @@ const fragmentShader = /* glsl */ `
   const vec3 GOLD      = vec3(0.66, 0.61, 0.38); // sun-dried grass patches
   const vec3 SEDIMENT  = vec3(0.45, 0.44, 0.38); // wet stream-bed soil
 
+  // lowlands -> uplands -> hills -> mountains -> peaks
+  const vec3 ELEVATION_0 = vec3(0.788, 0.824, 0.627); // #c9d2a0
+  const vec3 ELEVATION_1 = vec3(0.616, 0.749, 0.498); // #9dbf7f
+  const vec3 ELEVATION_2 = vec3(0.890, 0.843, 0.624); // #e3d79f
+  const vec3 ELEVATION_3 = vec3(0.725, 0.557, 0.388); // #b98e63
+  const vec3 ELEVATION_4 = vec3(0.961, 0.953, 0.925); // #f5f3ec
+
   // material palette
-  const vec3 ROCK_COLOR  = vec3(0.52, 0.49, 0.44);
-  const vec3 ROCK_DRY    = vec3(0.61, 0.49, 0.38);
+  const vec3 ROCK_COLOR  = ELEVATION_3;
+  const vec3 ROCK_DRY    = vec3(0.63, 0.48, 0.34);
   const vec3 CLIFF_COLOR = vec3(0.34, 0.33, 0.31);
   const vec3 DIRT_COLOR  = vec3(0.53, 0.46, 0.36);
   const vec3 GRAVEL      = vec3(0.69, 0.68, 0.62);
-  const vec3 SAND_COLOR  = vec3(0.82, 0.76, 0.59);
-  const vec3 SNOW_COLOR  = vec3(0.89, 0.90, 0.87);
+  const vec3 SAND_COLOR  = ELEVATION_2;
+  const vec3 SNOW_COLOR  = ELEVATION_4;
 
   // muted watercolor blues
   const vec3 LAGOON_WARM = vec3(0.40, 0.64, 0.65);
@@ -279,6 +286,9 @@ const fragmentShader = /* glsl */ `
       (hD - hU) * 0.5 / slopeSpan.y * uSlopeScale.y
     );
     float slope = length(grad);
+    float highland = smoothstep(0.42, 0.7, h + ridge * 0.06);
+    float convexity = max(h - (hL + hR + hU + hD) * 0.25, 0.0);
+    float ridgeLine = smoothstep(0.004, 0.035, convexity + ridge * 0.018) * highland;
 
     // breakup noise dithers every material threshold so blend edges read as
     // natural patchiness instead of contour lines; macro adds large-scale
@@ -301,8 +311,15 @@ const fragmentShader = /* glsl */ `
     // categorical grid raster without restoring axis-aligned cell borders.
     vec2 wobble = vec2(macro + patch * 0.45, patch - macro * 0.35) * (2.4 / uGridSize);
     vec4 biome = biomeAt(cuv, wobble);
-    vec3 color = biome.rgb;
     float density = biome.a;
+
+    vec3 elevationColor = mix(ELEVATION_0, ELEVATION_1, smoothstep(0.2, 0.34, h));
+    elevationColor = mix(elevationColor, ELEVATION_2, smoothstep(0.38, 0.55, h));
+    elevationColor = mix(elevationColor, ELEVATION_3, smoothstep(0.58, 0.76, h));
+    elevationColor = mix(elevationColor, ELEVATION_4, smoothstep(0.82, 0.96, h));
+    float biomeLum = max(dot(biome.rgb, vec3(0.299, 0.587, 0.114)), 0.01);
+    vec3 biomeTint = biome.rgb / biomeLum;
+    vec3 color = elevationColor * mix(vec3(1.0), biomeTint, 0.3);
 
     // Dense biomes get a stippled canopy; sparse ones retain broad washes.
     float clump = patch * 0.6 + breakup * 0.4;
@@ -334,20 +351,17 @@ const fragmentShader = /* glsl */ `
     vec3 rockColor = mix(rockBase, CLIFF_COLOR, smoothstep(ROCK_SLOPE_HI, CLIFF_SLOPE, slope + breakup * 0.3));
     rockColor *= (1.0 + ridge * 0.12) * (1.0 + macro * 0.12 + breakup * 0.08);
     float rockBlend = smoothstep(ROCK_SLOPE_LO, ROCK_SLOPE_HI, slope + breakup * 0.45);
+    rockBlend *= mix(0.28, 1.0, highland);
     color = mix(color, rockColor, rockBlend);
-    vec2 downhill = normalize(grad + vec2(0.0001));
-    vec2 acrossSlope = vec2(-downhill.y, downhill.x);
-    float hatchWave = abs(sin(dot(np, acrossSlope) * 760.0 + breakup * 3.0));
-    float hatch = 1.0 - smoothstep(0.04, 0.3, hatchWave);
-    float hatchMask = smoothstep(0.55, 1.45, slope) * (0.45 + ridge * 0.55);
-    color *= 1.0 - hatch * hatchMask * 0.18;
+    color = mix(color, ROCK_COLOR * 1.1, ridgeLine * 0.24);
 
     // beaches on flat ground within a thin band above the water surface:
     // warm shores get sand, cold ones gravel; riparian floors stay green
     vec3 beachColor = mix(GRAVEL, SAND_COLOR, warm);
     float sandBlend = smoothstep(SAND_BAND, SAND_BAND * 0.4, h - waterSurface + breakup * 0.012)
       * (1.0 - smoothstep(0.5, 1.0, slope))
-      * (1.0 - riparian);
+      * (1.0 - riparian)
+      * (1.0 - smoothstep(0.54, 0.72, landFactor));
     color = mix(color, beachColor * (1.0 + breakup * 0.2), sandBlend);
 
     // permanent snow only where truly cold (FMG treats < -5 C as permafrost;
@@ -357,7 +371,8 @@ const fragmentShader = /* glsl */ `
     // near-vertical faces shed it and tree canopies poke through
     float snow = (1.0 - smoothstep(-7.0, -4.5, tempC - gully * 2.0 + breakup * 3.5 + patch * 2.5))
       * (1.0 - smoothstep(1.4, 2.4, slope));
-    snow *= (1.0 - density * 0.5) * (0.76 + ridge * 0.18);
+    float brokenSnow = smoothstep(-0.28, 0.18, breakup + patch * 0.45 + ridge * 0.2);
+    snow *= (1.0 - density * 0.5) * highland * mix(0.42, 1.0, brokenSnow);
     color = mix(color, SNOW_COLOR, snow);
 
     // cavity shading baked into the albedo: gullies dim, crests catch light
@@ -370,6 +385,12 @@ const fragmentShader = /* glsl */ `
     vec3 sunDir = normalize(vec3(-0.55, -0.55, 0.85));
     float shade = clamp((dot(nrm, sunDir) - sunDir.z) * 2.0, -1.0, 1.0) * 0.5 + 0.5;
     color *= mix(vec3(0.84, 0.88, 1.03), vec3(1.16, 1.10, 0.97), shade);
+
+    // Stable broken hachures appear only on shaded highland faces.
+    float hatchWave = abs(sin((np.x * 0.82 + np.y) * 820.0 + breakup * 2.2));
+    float hatch = 1.0 - smoothstep(0.035, 0.24, hatchWave);
+    float hatchMask = highland * smoothstep(0.5, 1.5, slope) * (1.0 - shade) * (1.0 - snow * 0.7);
+    color *= 1.0 - hatch * hatchMask * 0.2;
 
     // aerial perspective: the high country pales toward the sky
     color = mix(color, vec3(0.93, 0.96, 1.00), smoothstep(0.45, 0.95, h) * 0.16);
@@ -389,6 +410,16 @@ const fragmentShader = /* glsl */ `
     vec3 waterColor = mix(SHELF_BLUE, OCEAN_BLUE, smoothstep(0.05, 0.55, bathy));
     waterColor = mix(waterColor, ABYSS_BLUE, smoothstep(0.55, 1.0, bathy));
     waterColor *= 1.0 + macro * 0.12 + breakup * 0.025;
+
+    // Layered bristle marks follow broad current contours like dry paint.
+    float currentField = fbm(np * 3.4 + uSeed * 61.0);
+    float currentPhase = currentField * 175.0 + macro * 15.0 + dot(np, vec2(0.32, 0.17)) * 24.0;
+    float bristleFine = 1.0 - smoothstep(0.025, 0.2, abs(sin(currentPhase)));
+    float bristleWide = 1.0 - smoothstep(0.04, 0.34, abs(sin(currentPhase * 0.487 + patch * 2.8)));
+    float currentBreaks = smoothstep(-0.3, 0.14, breakup + patch * 0.45 + currentField * 0.25);
+    float currentInk = max(bristleFine, bristleWide * 0.55) * currentBreaks * (0.55 + bathy * 0.45);
+    waterColor *= 1.0 + currentField * 0.08;
+    waterColor = mix(waterColor, FOAM_COLOR, currentInk * 0.12);
 
     // shore: 0 at the true coastline, growing seaward over the mask taper
     float shore = clamp((0.5 - landFactor) * 2.0, 0.0, 1.0);
@@ -440,9 +471,8 @@ const fragmentShader = /* glsl */ `
       waterColor = mix(waterColor, vec3(0.97, 0.98, 1.0), iceVeins * 0.5 + lakeRim * 0.25);
     }
 
-    // the land ramp spans ~2 bake texels: soft enough to antialias the
-    // waterline, tight enough that the beach still meets the water
-    float land = smoothstep(0.5, 0.54, landFactor);
+    // Center the antialiasing ramp on the true vector coastline.
+    float land = smoothstep(0.485, 0.515, landFactor);
     vec3 finalColor = mix(waterColor, color, land);
 
     // baked river courses are real water: a deep teal channel that reads
