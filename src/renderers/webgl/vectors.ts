@@ -285,7 +285,6 @@ function coastMesh(Three: Three): THREEType.LineSegments {
 
 export function buildSpriteMeshes(Three: Three, group: THREEType.Group, pickGroup: THREEType.Group): void {
   if (window.Layers?.isOn("burgIcons")) addBurgs(Three, group, pickGroup);
-  if (window.Layers?.isOn("relief")) addRelief(Three, group, pickGroup);
   if (window.Layers?.isOn("markers")) addMarkers(Three, group, pickGroup);
 }
 
@@ -301,21 +300,6 @@ function addBurgs(Three: Three, group: THREEType.Group, pickGroup: THREEType.Gro
     pushSprite(positions, colors, burg.x, burg.y, size, rgb);
     const [pr, pg, pb] = encodePick(PICK_KIND.burg, burg.i);
     pushSprite(pickPos, pickCol, burg.x, burg.y, size * 1.4, [pr / 255, pg / 255, pb / 255]);
-  }
-  group.add(coloredMesh(Three, positions, colors));
-  pickGroup.add(coloredMesh(Three, pickPos, pickCol, false));
-}
-
-function addRelief(Three: Three, group: THREEType.Group, pickGroup: THREEType.Group): void {
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const pickPos: number[] = [];
-  const pickCol: number[] = [];
-  for (const [index, icon] of (pack.relief || []).entries()) {
-    const size = Math.max(icon.s * 0.35, 1.2);
-    pushSprite(positions, colors, icon.x + icon.s / 2, icon.y + icon.s / 2, size, [0.28, 0.32, 0.22]);
-    const [pr, pg, pb] = encodePick(PICK_KIND.relief, index);
-    pushSprite(pickPos, pickCol, icon.x + icon.s / 2, icon.y + icon.s / 2, size, [pr / 255, pg / 255, pb / 255]);
   }
   group.add(coloredMesh(Three, positions, colors));
   pickGroup.add(coloredMesh(Three, pickPos, pickCol, false));

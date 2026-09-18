@@ -9,7 +9,7 @@ import { buildFillMeshes, buildLineMeshes, buildSpriteMeshes, gpuFillIds } from 
 
 const COVERED: ReadonlySet<string> = new Set(["texture", "heightmap", "biomes", "ocean"]);
 const GPU_LINES: ReadonlySet<string> = new Set(["rivers", "routes", "borders", "coastline"]);
-const GPU_SPRITES: ReadonlySet<string> = new Set(["relief", "burgIcons", "markers"]);
+const GPU_SPRITES: ReadonlySet<string> = new Set(["burgIcons", "markers"]);
 
 let canvas: HTMLCanvasElement | null = null;
 let renderer: THREEType.WebGLRenderer | null = null;
