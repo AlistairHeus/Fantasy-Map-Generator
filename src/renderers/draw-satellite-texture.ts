@@ -168,8 +168,6 @@ const fragmentShader = /* glsl */ `
   // lake group palette (hues follow the 2D default style)
   // freshwater reads LIGHTER than the ocean (the 2D style is a pale
   // periwinkle), not a darker basin
-  const vec3 FRESH_DEEP    = vec3(0.3, 0.58, 0.86); // freshwater basin
-  const vec3 FRESH_RIM     = vec3(0.65, 0.76, 0.97); // #a6c1fd shallow rim
   const vec3 SALT_WATER    = vec3(0.27, 0.60, 0.54); // #409b8a mineral teal
   const vec3 SALT_CRUST    = vec3(0.93, 0.91, 0.85); // evaporite shore rim
   const vec3 SINKHOLE_RIM  = vec3(0.36, 0.79, 0.99); // #5bc9fd cenote cyan
@@ -428,6 +426,7 @@ const fragmentShader = /* glsl */ `
     float riverMask = coast.b;
     float riverWater = smoothstep(0.2, 0.6, riverMask);
     vec3 lagoonColor = mix(LAGOON_COLD, LAGOON_WARM, warm) * (1.0 + breakup * 0.1);
+    vec3 inlandWaterColor = mix(OCEAN_BLUE, lagoonColor, 0.25) * (0.9 + breakup * 0.08);
     waterColor = mix(waterColor, lagoonColor, (1.0 - smoothstep(0.02, 0.25, shore)) * 0.95);
     waterColor = mix(waterColor, beachColor,
       (1.0 - smoothstep(0.0, 0.04, shore)) * 0.28 * (1.0 - riverWater * 0.7));
@@ -443,9 +442,7 @@ const fragmentShader = /* glsl */ `
     float lakeCode = floor(coast.a * 6.375 + 0.5); // byte / 40
     float lakeRim = 1.0 - smoothstep(0.0, 0.14, shore + breakup * 0.06);
     if (lakeCode > 0.5 && lakeCode < 1.5) {
-      // freshwater: still periwinkle-blue water, paler over the shallow rim
-      waterColor = mix(FRESH_DEEP, FRESH_RIM, clamp(lakeRim * 0.85 + breakup * 0.08, 0.0, 1.0));
-      waterColor *= 1.0 + macro * 0.06 + breakup * 0.04;
+      waterColor = mix(inlandWaterColor, lagoonColor, clamp(lakeRim * 0.25 + breakup * 0.04, 0.0, 0.3));
     } else if (lakeCode > 1.5 && lakeCode < 2.5) {
       // salt: milky mineral teal with an evaporite crust ring at the shore
       vec3 saltWater = mix(SALT_WATER, vec3(1.0), 0.12 + breakup * 0.08);
@@ -490,7 +487,7 @@ const fragmentShader = /* glsl */ `
     float riverIce = 1.0 - smoothstep(-5.5, -3.0, tempC + patch * 1.5);
     float bank = smoothstep(0.12, 0.32, riverMask) * (1.0 - river) * smoothstep(0.45, 0.55, landFactor);
     finalColor = mix(finalColor, SEDIMENT * (1.05 + breakup * 0.2), bank * 0.5 * flatGround * (1.0 - riverIce));
-    vec3 riverColor = mix(OCEAN_BLUE, lagoonColor, 0.25) * (0.88 + breakup * 0.1);
+    vec3 riverColor = inlandWaterColor;
     // white water: only genuinely steep runs aerate into rapids and falls
     // (slope at the channel centerline is the along-course gradient; the
     // animated churn in the mesh material uses the same steepness signal).

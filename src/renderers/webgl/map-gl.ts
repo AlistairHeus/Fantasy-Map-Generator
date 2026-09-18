@@ -7,7 +7,7 @@ import { decodePick, type GpuHit } from "./picking";
 import { bakeTerrainTexture, makeTerrainQuad } from "./terrain";
 import { buildFillMeshes, buildLineMeshes, buildSpriteMeshes, disposeVectorTextures, gpuFillIds } from "./vectors";
 
-const COVERED: ReadonlySet<string> = new Set(["texture", "heightmap", "biomes", "ocean"]);
+const COVERED: ReadonlySet<string> = new Set(["texture", "heightmap", "biomes", "ocean", "lakes"]);
 const GPU_LINES: ReadonlySet<string> = new Set(["rivers", "routes", "borders", "coastline"]);
 const GPU_SPRITES: ReadonlySet<string> = new Set(["relief", "burgIcons", "markers"]);
 
@@ -270,6 +270,7 @@ function applyCoverage(): void {
   ghost("temperature", "temperature");
   ghost("prec", "precipitation");
   ghost("population", "population");
+  ghost("lakes", "terrainShade");
   ghost("terrain", "relief");
   ghost("icons", "burgIcons");
   ghost("markers", "markers");
