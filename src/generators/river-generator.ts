@@ -501,6 +501,27 @@ class RiverModule {
       flux[pointIndex] = fl[fluxCell] || 0;
     });
 
+    for (let i = 0; i < anchorIndices.length - 1; i++) {
+      const start = anchorIndices[i];
+      const end = anchorIndices[i + 1];
+      const steps = end - start;
+      if (steps > 1) {
+        const startFlux = flux[start];
+        const endFlux = flux[end];
+        for (let j = 1; j < steps; j++) {
+          flux[start + j] = startFlux + (endFlux - startFlux) * (j / steps);
+        }
+      }
+    }
+
+    // Propagate to any trailing/leading points just in case
+    if (anchorIndices.length > 0) {
+      const first = anchorIndices[0];
+      for (let i = 0; i < first; i++) flux[i] = flux[first];
+      const last = anchorIndices[anchorIndices.length - 1];
+      for (let i = last + 1; i < points.length; i++) flux[i] = flux[last];
+    }
+
     return points.map(([x, y], idx) => [x, y, flux[idx]]);
   }
 

@@ -705,7 +705,8 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 #exitCustomization {
   right: 10px;
   bottom: 10px;
-  position: absolute;
+  position: fixed;
+  z-index: 1001;
   display: none;
 }
 
@@ -715,7 +716,9 @@ input[type="color"]::-webkit-color-swatch-wrapper {
   cursor: move;
 }
 
-#finalizeHeightmap {
+#finalizeHeightmap,
+#exitCustomizationMenu,
+#exitCustomizationMenuBottom {
   width: 100%;
   border: none;
   padding: 0.45em 0.75em;
@@ -723,6 +726,9 @@ input[type="color"]::-webkit-color-swatch-wrapper {
   white-space: nowrap;
   font-family: var(--monospace);
   animation: glowing 2s infinite;
+  background: var(--dark-solid);
+  color: #ffffff;
+  cursor: pointer;
 }
 
 .glow {

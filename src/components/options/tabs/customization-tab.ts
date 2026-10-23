@@ -2,6 +2,15 @@
 import { ensureEl } from "@/utils/nodeUtils";
 
 const TEMPLATE = /* html */ `
+  <div style="margin: 0.2em 0 0.8em">
+    <button
+      id="exitCustomizationMenu"
+      class="glow"
+      data-tip="Finalize the heightmap and exit the edit mode"
+    >
+      Exit Customization
+    </button>
+  </div>
   <p>Heightmap customization tools:</p>
   <div id="customizeTools">
     <button data-tip="Display brushes panel" id="paintBrushes">Paint Brushes</button>
@@ -79,6 +88,15 @@ const TEMPLATE = /* html */ `
     <span>Coord: </span><span id="heightmapInfoX"></span>/<span id="heightmapInfoY"></span><br />
     <span>Cell: </span><span id="heightmapInfoCell"></span><br />
     <span>Height: </span><span id="heightmapInfoHeight"></span>
+  </div>
+  <div style="margin: 0.8em 0 0.4em">
+    <button
+      id="exitCustomizationMenuBottom"
+      class="glow"
+      data-tip="Finalize the heightmap and exit the edit mode"
+    >
+      Exit Customization
+    </button>
   </div>
 `;
 

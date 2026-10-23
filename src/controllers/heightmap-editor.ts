@@ -1,6 +1,5 @@
 import {
   drag,
-  easeSinInOut,
   hsl,
   interpolateRound,
   interpolateSpectral,
@@ -308,6 +307,8 @@ function addToolbarListeners(): void {
   ensureEl("heightmapPreview").addEventListener("click", toggleHeightmapPreview);
   ensureEl("heightmap3DView").addEventListener("click", changeViewMode);
   ensureEl("finalizeHeightmap").addEventListener("click", finalizeHeightmap);
+  findEl("exitCustomizationMenu")?.addEventListener("click", finalizeHeightmap);
+  findEl("exitCustomizationMenuBottom")?.addEventListener("click", finalizeHeightmap);
   for (const key of EDITOR_OPTIONS) {
     ensureEl<HTMLInputElement>(key).addEventListener("change", function () {
       Options.set(o => (o.app.heightmapEditor[key] = this.checked));
@@ -401,25 +402,13 @@ function enterHeightmapEditMode(mode: string, tool?: string): void {
 
   // show finalize button
   const exitCustomization = ensureEl("exitCustomization");
-  if (!sessionStorage.getItem("noExitButtonAnimation")) {
-    sessionStorage.setItem("noExitButtonAnimation", "true");
-    exitCustomization.style.opacity = "0";
-    const width = 12 * +ensureEl<HTMLInputElement>("uiSize").value * 11;
-    exitCustomization.style.right = `${(viewport.width - width) / 2}px`;
-    exitCustomization.style.bottom = `${viewport.height / 2}px`;
-    exitCustomization.style.transform = "scale(2)";
-    exitCustomization.style.display = "block";
-    select("#exitCustomization")
-      .transition()
-      .duration(1000)
-      .style("opacity", 1)
-      .transition()
-      .duration(2000)
-      .ease(easeSinInOut)
-      .style("right", "10px")
-      .style("bottom", "10px")
-      .style("transform", "scale(1)");
-  } else exitCustomization.style.display = "block";
+  exitCustomization.style.opacity = "1";
+  exitCustomization.style.transform = "none";
+  exitCustomization.style.left = "";
+  exitCustomization.style.top = "";
+  exitCustomization.style.right = "10px";
+  exitCustomization.style.bottom = "10px";
+  exitCustomization.style.display = "block";
 
   const layersPreset = ensureEl<HTMLSelectElement>("layersPreset");
   layersPreset.value = "heightmap";
