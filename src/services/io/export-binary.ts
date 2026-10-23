@@ -339,7 +339,6 @@ function writeRoutes(chunk: BinaryWriter): void {
   }
 }
 
-
 /**
  * Build an FMGb mesh file: v1 mesh + cell fields, then FMGx chunks for climate,
  * rivers, vector coasts, and the remaining pack/grid channels terrain tools need.
